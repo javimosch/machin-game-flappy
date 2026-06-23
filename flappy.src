@@ -1,0 +1,239 @@
+// machin-game-flappy — a Flappy-Bird-style game as a real native desktop app,
+// written in machin (MFL) and drawn with raylib through machin's C FFI. Tap
+// Space (or click) to flap the bird up through the gaps in the scrolling pipes;
+// one point per pipe, hit a pipe or the ground and it's over.
+//
+//   ./build.sh && ./machin-game-flappy        (run from the repo root; loads assets/)
+//
+// This is the *sprite/texture* dogfood for machin's FFI: real PNG textures are
+// loaded into GPU handles (Texture2D, a by-value struct returned across the
+// FFI) and drawn with DrawTextureRec / DrawTexturePro, which take Rectangle and
+// Vector2 — by-value structs with f32 fields — plus an f32 rotation. The bird is
+// a 3-frame sprite sheet (source Rectangle per frame) tilted by its velocity;
+// the pipes reuse one texture, flipped via a negative source height.
+
+extern "raylib" {
+    header "raylib.h"
+    link "raylib" link "GL" link "m" link "pthread" link "dl" link "rt" link "X11"
+    cstruct Color { r u8 g u8 b u8 a u8 }
+    cstruct Texture2D { id u32 width i32 height i32 mipmaps i32 format i32 }
+    cstruct Rectangle { x f32 y f32 width f32 height f32 }
+    cstruct Vector2 { x f32 y f32 }
+    fn InitWindow(i32, i32, string)
+    fn SetTargetFPS(i32)
+    fn WindowShouldClose() bool
+    fn BeginDrawing()
+    fn EndDrawing()
+    fn ClearBackground(Color)
+    fn LoadTexture(string) Texture2D
+    fn DrawTexture(Texture2D, i32, i32, Color)
+    fn DrawTextureRec(Texture2D, Rectangle, Vector2, Color)
+    fn DrawTexturePro(Texture2D, Rectangle, Rectangle, Vector2, f32, Color)
+    fn DrawText(string, i32, i32, i32, Color)
+    fn DrawRectangle(i32, i32, i32, i32, Color)
+    fn MeasureText(string, i32) i32
+    fn IsKeyPressed(i32) bool
+    fn IsMouseButtonPressed(i32) bool
+    fn CloseWindow()
+}
+
+// ---- constants ----
+
+func WIN_W() (n) { n = 480 }       // window size stays int (FFI i32 / UI)
+func WIN_H() (n) { n = 640 }
+func GROUND_Y() (n) { n = 560.0 }  // world coords are float; concrete ints don't
+func BIRD_X() (n) { n = 110.0 }    // promote against float in MFL, so use float()
+func PIPE_W() (n) { n = 72.0 }     // collision width of a pipe body
+func GAP_H() (n) { n = 78.0 }      // half the vertical gap between pipes
+func SPACING() (n) { n = 220.0 }   // horizontal distance between pipes
+func SPEED() (n) { n = 3.0 }       // world scroll speed (px/frame)
+
+func col(r, g, b) (c) { c = Color{r, g, b, 255} }
+func col_a(r, g, b, a) (c) { c = Color{r, g, b, a} }
+func white() (c) { c = Color{255, 255, 255, 255} }
+
+func clampf(v, lo, hi) (o) {
+    o = v
+    if o < lo { o = lo }
+    if o > hi { o = hi }
+}
+
+// a random gap-center y (float), kept clear of the ceiling and the ground.
+// float() lifts the concrete int from byte_at into float arithmetic.
+func rnd_gap() (g) {
+    r := rand_bytes(2)
+    g = 160.0 + float((byte_at(r, 0) << 8 | byte_at(r, 1)) % 260)
+}
+
+// (re)initialize the three pipes, marching off to the right. A float accumulator
+// (not i * SPACING) keeps the loop index a pure int.
+func init_pipes(px, gy, scored) {
+    x := 480.0
+    i := 0
+    while i < 3 {
+        px[i] = x
+        gy[i] = rnd_gap()
+        scored[i] = 0
+        x = x + SPACING()
+        i = i + 1
+    }
+}
+
+// ---- rendering ----
+
+func draw_pipes(pipe_tex, px, gy) {
+    i := 0
+    while i < 3 {
+        x := px[i] - 8.0
+        gap_top := gy[i] - GAP_H()
+        gap_bot := gy[i] + GAP_H()
+        // top pipe: same texture flipped (negative source height) so its cap faces down
+        DrawTextureRec(pipe_tex, Rectangle{0, 0, 88, -600}, Vector2{x, gap_top - 600.0}, white())
+        // bottom pipe: drawn normally, cap up at the gap
+        DrawTextureRec(pipe_tex, Rectangle{0, 0, 88, 600}, Vector2{x, gap_bot}, white())
+        i = i + 1
+    }
+}
+
+func draw_ground(ground_tex, scroll) {
+    gx := 0 - (scroll % WIN_W())
+    gy := int(GROUND_Y())
+    DrawTexture(ground_tex, gx, gy, white())
+    DrawTexture(ground_tex, gx + WIN_W(), gy, white())
+}
+
+func draw_bird(bird_tex, bird_y, vy, tick) {
+    frame := (tick / 5) % 3
+    src := Rectangle{float(frame * 48), 0, 48, 48}
+    dest := Rectangle{BIRD_X(), bird_y, 48, 48}
+    rot := clampf(vy * 5.0, -30.0, 95.0)
+    DrawTexturePro(bird_tex, src, dest, Vector2{24, 24}, rot, white())
+}
+
+// ---- collision ----
+
+func dead_now(bird_y, px, gy) (dead) {
+    dead = false
+    if bird_y + 16.0 >= GROUND_Y() { dead = true }
+    bl := BIRD_X() - 16
+    br := BIRD_X() + 16
+    bt := bird_y - 16.0
+    bb := bird_y + 16.0
+    i := 0
+    while i < 3 {
+        if px[i] < br {
+            if px[i] + PIPE_W() > bl {
+                if bt < gy[i] - GAP_H() { dead = true }
+                if bb > gy[i] + GAP_H() { dead = true }
+            }
+        }
+        i = i + 1
+    }
+}
+
+// ---- main ----
+
+func main() {
+    InitWindow(WIN_W(), WIN_H(), "machin - flappy")
+    SetTargetFPS(60)
+
+    bg := LoadTexture("assets/bg.png")
+    pipe_tex := LoadTexture("assets/pipe.png")
+    ground_tex := LoadTexture("assets/ground.png")
+    bird_tex := LoadTexture("assets/bird.png")
+
+    px := []float{0.0, 0.0, 0.0}
+    gy := []float{0.0, 0.0, 0.0}
+    scored := []int{0, 0, 0}
+    init_pipes(px, gy, scored)
+
+    bird_y := 280.0
+    vy := 0.0
+    score := 0
+    mode := 0           // 0 ready, 1 playing, 2 dead
+    tick := 0
+    scroll := 0
+
+    while WindowShouldClose() == false {
+        flap := IsKeyPressed(32) || IsMouseButtonPressed(0)
+        tick = tick + 1
+
+        if mode == 0 {
+            if flap {
+                mode = 1
+                vy = -7.5
+            }
+        }
+        if mode == 1 {
+            if flap { vy = -7.5 }
+            vy = vy + 0.45
+            bird_y = bird_y + vy
+            if bird_y < 16.0 { bird_y = 16.0  vy = 0.0 }
+            scroll = scroll + 3
+
+            i := 0
+            while i < 3 {
+                px[i] = px[i] - SPEED()
+                if px[i] < 0.0 - 90.0 {
+                    px[i] = px[i] + 3 * SPACING()
+                    gy[i] = rnd_gap()
+                    scored[i] = 0
+                }
+                if scored[i] == 0 {
+                    if px[i] + PIPE_W() < BIRD_X() {
+                        score = score + 1
+                        scored[i] = 1
+                    }
+                }
+                i = i + 1
+            }
+            if dead_now(bird_y, px, gy) { mode = 2 }
+        }
+        if mode == 2 {
+            // let the bird drop to the ground
+            vy = vy + 0.45
+            bird_y = bird_y + vy
+            if bird_y + 16.0 > GROUND_Y() { bird_y = GROUND_Y() - 16.0 }
+            if flap {
+                init_pipes(px, gy, scored)
+                bird_y = 280.0
+                vy = 0.0
+                score = 0
+                mode = 0
+            }
+        }
+
+        BeginDrawing()
+        DrawTexture(bg, 0, 0, white())
+        draw_pipes(pipe_tex, px, gy)
+        draw_ground(ground_tex, scroll)
+        draw_bird(bird_tex, bird_y, vy, tick)
+
+        // score (big, centered near the top)
+        s := str(score)
+        sw := MeasureText(s, 56)
+        DrawText(s, (WIN_W() - sw) / 2, 40, 56, white())
+        DrawText(s, (WIN_W() - sw) / 2 - 2, 38, 56, col(80, 70, 60))
+
+        if mode == 0 {
+            t := "tap SPACE to fly"
+            tw := MeasureText(t, 28)
+            DrawText(t, (WIN_W() - tw) / 2, 300, 28, col(60, 50, 40))
+        }
+        if mode == 2 {
+            DrawRectangle(0, 0, WIN_W(), WIN_H(), col_a(0, 0, 0, 90))
+            o := "Game Over"
+            ow := MeasureText(o, 48)
+            DrawText(o, (WIN_W() - ow) / 2, 230, 48, white())
+            sc := "score " + str(score)
+            cw := MeasureText(sc, 30)
+            DrawText(sc, (WIN_W() - cw) / 2, 300, 30, white())
+            h := "press SPACE to retry"
+            hw := MeasureText(h, 24)
+            DrawText(h, (WIN_W() - hw) / 2, 350, 24, col(230, 230, 230))
+        }
+        EndDrawing()
+    }
+
+    CloseWindow()
+}
