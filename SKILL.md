@@ -7,6 +7,8 @@ description: Build, run, and modify machin-game-flappy — a Flappy-Bird-style n
 
 A Flappy-Bird-style game as a native raylib desktop window, written in [machin](https://github.com/javimosch/machin) (MFL). It is the reference example for **textures/sprites** in machin (the FFI counterpart to [machin-game-2048](https://github.com/javimosch/machin-game-2048), which used only shapes + text).
 
+> The shared game-dev setup, build-and-verify workflow, and the cross-cutting caveats/gotchas (esp. the `int`/`float` rule this game drove `float()` to fix) live in the canonical **[machin-gamedev skill](https://github.com/javimosch/machin/blob/main/skills/machin-gamedev/SKILL.md)**. This file is flappy's specifics.
+
 ## Build & run
 
 ```bash
