@@ -1,9 +1,9 @@
-// machin-game-flappy — a Flappy-Bird-style game as a real native desktop app,
+// machin-game-demo-flappy — a Flappy-Bird-style game as a real native desktop app,
 // written in machin (MFL) and drawn with raylib through machin's C FFI. Tap
 // Space (or click) to flap the bird up through the gaps in the scrolling pipes;
 // one point per pipe, hit a pipe or the ground and it's over.
 //
-//   ./build.sh && ./machin-game-flappy        (run from the repo root; loads assets/)
+//   ./build.sh && ./machin-game-demo-flappy        (run from the repo root; loads assets/)
 //
 // This is the *sprite/texture* dogfood for machin's FFI: real PNG textures are
 // loaded into GPU handles (Texture2D, a by-value struct returned across the

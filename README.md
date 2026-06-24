@@ -1,4 +1,4 @@
-# machin-game-flappy
+# machin-game-demo-flappy
 
 A **Flappy-Bird-style** game as a real **native desktop app** — written in **[machin](https://github.com/javimosch/machin)** (MFL) and drawn with [raylib](https://www.raylib.com/) through machin's C FFI. Real PNG **sprites** on a real OpenGL window: tap **Space** (or click) to flap the bird up through the gaps in the scrolling pipes; one point per pipe, hit a pipe or the ground and it's over.
 
@@ -18,7 +18,7 @@ Part of [**awesome-machin**](https://github.com/javimosch/awesome-machin) — th
 
 ## Why it exists
 
-The machin north star is "build real things, let usage drive features." This is the **sprite/texture** dogfood for machin's C FFI — the GUI counterpart to the terminal [machin-game-snake](https://github.com/javimosch/machin-game-snake), and a sibling to [machin-game-2048](https://github.com/javimosch/machin-game-2048). It exercises a corner the earlier GUI demo didn't:
+The machin north star is "build real things, let usage drive features." This is the **sprite/texture** dogfood for machin's C FFI — the GUI counterpart to the terminal [machin-game-demo-snake](https://github.com/javimosch/machin-game-demo-snake), and a sibling to [machin-game-demo-2048](https://github.com/javimosch/machin-game-demo-2048). It exercises a corner the earlier GUI demo didn't:
 
 - **Textures as FFI struct handles.** `LoadTexture` returns a `Texture2D` (a by-value struct) **across** the FFI; the bird/pipes/ground/bg are real PNGs uploaded to the GPU.
 - **Float-field by-value structs.** `DrawTextureRec` / `DrawTexturePro` take `Rectangle` and `Vector2` — structs with `f32` fields — plus an `f32` rotation. The bird is a 3-frame sprite sheet (a source `Rectangle` per frame) tilted by its velocity; the two pipes reuse one texture, the top one flipped via a **negative source height**.
@@ -30,8 +30,8 @@ That all worked on the existing FFI — but building the physics surfaced a genu
 Needs the `machin` compiler (**v0.43.0+**), a C compiler, **raylib**, and a display (X11/desktop). A GUI binary links the system graphics stack, so — unlike machin's headless tools — it is **not** a no-dependency binary.
 
 ```bash
-./build.sh            # → ./machin-game-flappy
-./machin-game-flappy  # run from the repo root so it finds assets/
+./build.sh            # → ./machin-game-demo-flappy
+./machin-game-demo-flappy  # run from the repo root so it finds assets/
 ```
 
 `build.sh` uses a **system raylib** if installed (`sudo apt-get install libraylib-dev`, `brew install raylib`, …); otherwise it **vendors raylib's prebuilt static release** into `vendor/` automatically — no root required.

@@ -1,19 +1,19 @@
 ---
-name: machin-game-flappy
-description: Build, run, and modify machin-game-flappy — a Flappy-Bird-style native raylib desktop game in machin (MFL). Use when working on this repo, or as a worked example of textures/sprites over the C FFI (Texture2D handles, f32-field Rectangle/Vector2 structs, sprite sheets, rotation) and machin's int/float conversion rules.
+name: machin-game-demo-flappy
+description: Build, run, and modify machin-game-demo-flappy — a Flappy-Bird-style native raylib desktop game in machin (MFL). Use when working on this repo, or as a worked example of textures/sprites over the C FFI (Texture2D handles, f32-field Rectangle/Vector2 structs, sprite sheets, rotation) and machin's int/float conversion rules.
 ---
 
-# machin-game-flappy
+# machin-game-demo-flappy
 
-A Flappy-Bird-style game as a native raylib desktop window, written in [machin](https://github.com/javimosch/machin) (MFL). It is the reference example for **textures/sprites** in machin (the FFI counterpart to [machin-game-2048](https://github.com/javimosch/machin-game-2048), which used only shapes + text).
+A Flappy-Bird-style game as a native raylib desktop window, written in [machin](https://github.com/javimosch/machin) (MFL). It is the reference example for **textures/sprites** in machin (the FFI counterpart to [machin-game-demo-2048](https://github.com/javimosch/machin-game-demo-2048), which used only shapes + text).
 
 > The shared game-dev setup, build-and-verify workflow, and the cross-cutting caveats/gotchas (esp. the `int`/`float` rule this game drove `float()` to fix) live in the canonical **[machin-gamedev skill](https://github.com/javimosch/machin/blob/main/skills/machin-gamedev/SKILL.md)**. This file is flappy's specifics.
 
 ## Build & run
 
 ```bash
-./build.sh                 # machin encode flappy.src -> flappy.mfl, then machin build -> ./machin-game-flappy
-./machin-game-flappy       # run from the repo root so assets/ resolves
+./build.sh                 # machin encode flappy.src -> flappy.mfl, then machin build -> ./machin-game-demo-flappy
+./machin-game-demo-flappy       # run from the repo root so assets/ resolves
 ```
 
 Needs `machin` **v0.43.0+** (uses `float()`), a C compiler, **raylib**, and a display.
